@@ -245,3 +245,25 @@ test_build_system_cmake:
     - mkdir test_build_system
     - cd test_build_system
     - ${IDF_PATH}/tools/ci/test_build_system_cmake.sh
+
+build_docker:
+  stage: build
+  tags:
+    - build_docker_amd64_brno
+  only:
+    refs:
+      - master
+      - /^release\/v/
+      - /^v\d+\.\d+(\.\d+)?($|-)/
+      - schedules
+  variables:
+    DOCKER_TMP_IMAGE_NAME: "idf_tmp_image"
+  script:
+    # Figure out how to tag the image
+    - export DOCKER_BUILD_ARGS="--build-arg IDF_CLONE_URL=${CI_REPOSITORY_URL} --build-arg IDF_CLONE_BRANCH_OR_TAG=${CI_COMMIT_REF_NAME} --build-arg IDF_CHECKOUT_REF=${CI_COMMIT_TAG:-$CI_COMMIT_SHA}"
+
+    # Build
+    - docker build --tag ${DOCKER_TMP_IMAGE_NAME} ${DOCKER_BUILD_ARGS} tools/docker/
+
+    # Check that the image is functional
+    - docker run --rm --volume $PWD/examples/get-started/blink:/build --workdir /build ${DOCKER_TMP_IMAGE_NAME} idf.py build
